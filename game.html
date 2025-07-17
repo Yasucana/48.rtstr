@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>RTS Game</title>
+  <style>
+    body { margin: 0; font-family: sans-serif; background: #f0f0f0; }
+    #ui { background: #222; color: white; padding: 10px; display: flex; justify-content: space-around; align-items: center; }
+    #instructions {
+      padding: 10px; font-size: 14px;
+      background: #fff3cd; color: #856404; border: 1px solid #ffeeba;
+    }
+    #time { text-align: center; font-weight: bold; margin-top: 10px; }
+    #game {
+      display: grid; grid-template-columns: repeat(10, 50px);
+      grid-template-rows: repeat(10, 50px);
+      width: 500px; height: 500px; margin: 10px auto;
+    }
+    .tile {
+      width: 50px; height: 50px; border: 1px solid #ccc;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .base { background: red; }
+    .enemy { background: black; color: white; }
+    .gold { background: gold; }
+    .worker { background: lightblue; }
+    .soldier { background: green; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+  <div id="ui">
+    Gold: <span id="gold">0</span>
+    <button id="workerBtn" onclick="spawnUnit('worker')">Create Worker (10)</button>
+    <button id="soldierBtn" onclick="spawnUnit('soldier')">Create Soldier (20)</button>
+  </div>
+
+  <div id="instructions">
+    🛠️ <strong>How to Play:</strong><br>
+    - Click “<strong>Create Worker</strong>” to collect gold from the yellow tile.<br>
+    - Worker moves to mine, returns to base, and gives you 1 gold per trip.<br>
+    - Click “<strong>Create Soldier</strong>” to attack the enemy (black tile).<br>
+  </div>
+
+  <div id="time">⏱️ Time Elapsed: 0s</div>
+  <div id="game"></div>
+
+  <script>
+    const size = 10;
+    const game = document.getElementById('game');
+    const goldDisplay = document.getElementById('gold');
+    const timeDisplay = document.getElementById('time');
+    const workerBtn = document.getElementById('workerBtn');
+    const soldierBtn = document.getElementById('soldierBtn');
+
+    const grid = [];
+    let gold = 20;
+    let seconds = 0;
+    const units = [];
+
+    const basePos = { x: 0, y: 0 };
+    const enemyBase = { x: 9, y: 9 };
+    const goldMine = { x: 3, y: 3 };
+
+    function updateUI() {
+      goldDisplay.textContent = gold;
+      workerBtn.disabled = gold < 10;
+      soldierBtn.disabled = gold < 20;
+    }
+
+    function updateTime() {
+      seconds++;
+      timeDisplay.textContent = `⏱️ Time Elapsed: ${seconds}s`;
+    }
+
+    function createGrid() {
+      for (let y = 0; y < size; y++) {
+        grid[y] = [];
+        for (let x = 0; x < size; x++) {
+          const div = document.createElement('div');
+          div.classList.add('tile');
+          game.appendChild(div);
+          grid[y][x] = { x, y, el: div };
+        }
+      }
+      grid[basePos.y][basePos.x].el.classList.add('base');
+      grid[enemyBase.y][enemyBase.x].el.classList.add('enemy');
+      grid[goldMine.y][goldMine.x].el.classList.add('gold');
+    }
+
+    function spawnUnit(type) {
+      const cost = type === 'worker' ? 10 : 20;
+      if (gold < cost) return;
+      gold -= cost;
+      updateUI();
+      const unit = {
+        x: basePos.x,
+        y: basePos.y,
+        type,
+        target: type === 'worker' ? goldMine : enemyBase,
+        stage: type === 'worker' ? 'toMine' : null
+      };
+      units.push(unit);
+      renderUnits();
+    }
+
+    function renderUnits() {
+      for (let row of grid)
+        for (let tile of row)
+          tile.el.classList.remove('worker', 'soldier');
+
+      for (const unit of units)
+        grid[unit.y][unit.x].el.classList.add(unit.type);
+    }
+
+    function moveUnitToward(unit, target) {
+      if (unit.x < target.x) unit.x++;
+      else if (unit.x > target.x) unit.x--;
+      else if (unit.y < target.y) unit.y++;
+      else if (unit.y > target.y) unit.y--;
+    }
+
+    function gameLoop() {
+      for (const unit of units) {
+        if (unit.type === 'worker') {
+          if (unit.stage === 'toMine') {
+            moveUnitToward(unit, goldMine);
+            if (unit.x === goldMine.x && unit.y === goldMine.y)
+              unit.stage = 'toBase';
+          } else if (unit.stage === 'toBase') {
+            moveUnitToward(unit, basePos);
+            if (unit.x === basePos.x && unit.y === basePos.y) {
+              gold += 1;
+              updateUI();
+              unit.stage = 'toMine';
+            }
+          }
+        } else if (unit.type === 'soldier') {
+          moveUnitToward(unit, enemyBase);
+        }
+      }
+      renderUnits();
+    }
+
+    createGrid();
+    updateUI();
+    setInterval(updateTime, 1000);
+    setInterval(gameLoop, 500);
+  </script>
+</body>
+</html>
